@@ -5,7 +5,7 @@
 Copy and paste this **exact** command into Render's Build Command field:
 
 ```
-pip install --upgrade pip && pip install pillow --only-binary :all: && pip install -r requirements.txt
+pip install --upgrade pip && pip install --upgrade setuptools wheel && pip install pillow --only-binary :all: && pip install pydantic-core --only-binary :all: && pip install -r requirements.txt --prefer-binary
 ```
 
 ## Step-by-Step Instructions
@@ -26,15 +26,23 @@ pip install --upgrade pip && pip install pillow --only-binary :all: && pip insta
 ## What This Does
 
 - `pip install --upgrade pip` - Ensures latest pip
+- `pip install --upgrade setuptools wheel` - Ensures build tools are latest
 - `pip install pillow --only-binary :all:` - Installs Pillow from pre-built wheel (no compilation)
-- `pip install -r requirements.txt` - Installs all other packages
+- `pip install pydantic-core --only-binary :all:` - Installs pydantic-core from pre-built wheel (no Rust compilation)
+- `pip install -r requirements.txt --prefer-binary` - Installs all other packages, preferring binary wheels
 
 ## If This Still Fails
 
-Try this alternative:
+Try this alternative (simpler):
 
 ```
-pip install --upgrade pip setuptools wheel && pip install pillow --only-binary :all: --no-cache-dir && pip install -r requirements.txt --no-cache-dir
+pip install --upgrade pip && pip install -r requirements.txt --prefer-binary --no-cache-dir
+```
+
+Or this more explicit version:
+
+```
+pip install --upgrade pip setuptools wheel && pip install pillow pydantic-core --only-binary :all: && pip install -r requirements.txt --prefer-binary
 ```
 
 ## Verify It Works
