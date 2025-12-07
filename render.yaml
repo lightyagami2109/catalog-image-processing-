@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: catalog-image-pipeline
+    env: python
+    buildCommand: pip install --upgrade pip setuptools wheel && pip install --only-binary :all: pillow && pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthz
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: STORAGE_PATH
+        value: /mnt/storage
+      - key: SECRET_KEY
+        sync: false
+      - key: PURGE_DAYS
+        value: 30
+      - key: ENABLE_WORKER
+        value: true
+

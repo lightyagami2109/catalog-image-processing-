@@ -1,26 +1,33 @@
-# Fix for Render Build Errors
+# Fix for Render Build Errors - Pillow Build Failure
 
 ## Problem
-Build fails with "Getting requirements to build wheel" error. This happens because Pillow and imagehash need system dependencies.
+Build fails with "Failed to build 'pillow'" error. Pillow requires system libraries (libjpeg, zlib) that aren't available on Render by default.
 
-## Solution: Update Build Command
+## Solution: Use Pre-built Wheels
 
 In your Render Web Service settings, **change the Build Command** to:
 
 ```bash
-pip install --upgrade pip setuptools wheel && pip install -r requirements.txt
+pip install --upgrade pip setuptools wheel && pip install --only-binary :all: pillow && pip install -r requirements.txt
 ```
 
 This will:
 1. Upgrade pip, setuptools, and wheel first
-2. Then install all dependencies
+2. Install Pillow using pre-built wheels (no compilation needed)
+3. Then install all other dependencies
 
 ## Alternative: If Still Failing
 
-If the above doesn't work, use this more robust build command:
+If the above doesn't work, try this command:
 
 ```bash
-pip install --upgrade pip && pip install --upgrade setuptools wheel && pip install -r requirements.txt --no-cache-dir
+pip install --upgrade pip && pip install --upgrade setuptools wheel && pip install pillow --only-binary :all: && pip install -r requirements.txt --no-cache-dir
+```
+
+Or use this simpler version:
+
+```bash
+pip install --upgrade pip && pip install -r requirements.txt --only-binary :all: --no-cache-dir
 ```
 
 ## Steps to Fix in Render
