@@ -25,13 +25,9 @@ A small, exam-friendly async FastAPI pipeline for processing catalog images with
        │
        ▼
 ┌─────────────┐
-│   Redis     │  ← Job Queue (optional, falls back to DB polling)
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│   Worker    │  ← Background Worker (Render)
+│   Worker    │  ← Integrated Worker (runs in same process)
 │  (workers)  │  Processes jobs, creates renditions
+│             │  Uses database queue (no Redis needed)
 └─────────────┘
        │
        ▼
@@ -73,62 +69,70 @@ A small, exam-friendly async FastAPI pipeline for processing catalog images with
    python app/scripts/seed_corpus.py
    ```
 
-## Render Deployment (Non-Docker)
+## Render Deployment (Non-Docker, Free Tier)
 
-### Step 1: Create Web Service
+### Step 1: Create PostgreSQL Database
+
+1. On Render Dashboard, click **New** → **PostgreSQL**
+2. Configure:
+   - **Name:** `catalog-pipeline-db`
+   - **Region:** Choose closest (e.g., Oregon)
+   - **Database:** `catalogdb`
+3. Click **Create Database**
+4. After creation, open database → **Connections** tab
+5. Copy **Internal Database URL**
+6. **IMPORTANT:** Change `postgresql://` to `postgresql+asyncpg://`
+   - Example: `postgresql+asyncpg://user:pass@host:port/dbname`
+
+### Step 2: Create Web Service
 
 1. On Render Dashboard, click **New** → **Web Service**
 2. Connect your repository
 3. Configure:
-   - **Build Command:** `pip install -r requirements.txt`
+   - **Name:** `catalog-image-pipeline`
+   - **Environment:** `Python 3`
+   - **Python Version:** `3.11` (important - set explicitly)
+   - **Build Command:** `pip install --upgrade pip setuptools wheel && pip install --only-binary :all: pillow pydantic-core asyncpg && pip install -r requirements.txt --prefer-binary --no-cache-dir`
    - **Start Command:** `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
    - **Health Check Path:** `/healthz`
 
-### Step 2: Provision PostgreSQL
+### Step 3: Add Environment Variables
 
-1. Create a **PostgreSQL** database on Render
-2. Copy the **Internal Database URL**
-3. In Web Service settings, add environment variable:
-   ```
-   DATABASE_URL=postgresql+asyncpg://user:pass@host:port/dbname
-   ```
+In Web Service settings → **Environment** section, add:
 
-### Step 3: (Optional) Provision Redis
-
-1. Create a **Redis** instance on Render
-2. Copy the **Internal Redis URL**
-3. Add environment variable:
-   ```
-   REDIS_URL=redis://:password@host:port
-   ```
-   If not set, worker falls back to database polling.
-
-### Step 4: Set Other Environment Variables
-
-Add to Web Service:
 ```
+DATABASE_URL=postgresql+asyncpg://user:pass@host:port/dbname
 STORAGE_PATH=/mnt/storage
 SECRET_KEY=<generate-random-string>
 PURGE_DAYS=30
+ENABLE_WORKER=true
 ```
 
-### Step 5: Create Background Worker
+**Note:** 
+- Generate `SECRET_KEY` with: `openssl rand -hex 32`
+- `ENABLE_WORKER=true` starts worker in same process (no separate worker service needed)
+- **No Redis needed** - worker uses database polling fallback
 
-1. Click **New** → **Background Worker**
-2. Use the same repository
-3. **Start Command:** `bash app/scripts/run_worker.sh`
-4. Copy all environment variables from Web Service (DATABASE_URL, REDIS_URL, etc.)
+### Step 4: Deploy and Verify
 
-### Step 6: Deploy and Verify
-
-1. Deploy both services
-2. Check Web Service logs for: `✓ Database tables created`, `✓ Redis connected` (or fallback message)
-3. Seed test data:
-   ```bash
-   # From Render shell or locally pointing to Render service
-   python app/scripts/seed_corpus.py http://your-service.onrender.com
+1. Click **Create Web Service** (or **Save Changes** if editing)
+2. Wait for deployment (2-5 minutes)
+3. Check logs for:
    ```
-4. Verify endpoints:
+   ✓ Database tables created
+   ⚠ Redis not configured, using fallback queue
+   ✓ Worker started as background task
+   ✓ Application started
+   ```
+4. Test health check:
+   ```bash
+   curl https://your-service.onrender.com/healthz
+   ```
+5. Seed test data (from Render Shell or locally):
+   ```bash
+   python app/scripts/seed_corpus.py https://your-service.onrender.com
+   ```
+6. Verify endpoints:
    - `GET /healthz` → `{"status": "healthy"}`
    - `GET /metrics` → Tenant metrics
    - `GET /retrieve/asset/1` → Asset details
@@ -197,11 +201,13 @@ curl -X POST "http://localhost:10000/purge/?dry_run=false&days=30"
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `DATABASE_URL` | PostgreSQL or SQLite connection string | `sqlite+aiosqlite:///./dev.db` |
-| `REDIS_URL` | Redis connection string (optional) | Empty (uses fallback) |
 | `STORAGE_PATH` | Local storage path | `./storage` |
 | `SECRET_KEY` | Secret key for app | `change_me` |
 | `PURGE_DAYS` | Days before purging old renditions | `30` |
+| `ENABLE_WORKER` | Enable integrated worker (runs in same process) | `true` |
 | `PORT` | Server port | `10000` |
+
+**Note:** Redis is not required. The worker uses database polling when Redis is not configured.
 
 ## Rendition Presets
 
@@ -273,6 +279,8 @@ See [study_guide.md](study_guide.md) for a 2-day exam preparation plan.
 ## Notes
 
 - **Storage**: Currently uses local filesystem. See `app/storage.py` for S3 adapter hooks.
-- **Queue**: Falls back to database polling if Redis is not available.
+- **Queue**: Uses database polling (no Redis required). Worker runs in same process as Web Service for free tier deployment.
 - **Quality Metrics**: Uses PSNR (Peak Signal-to-Noise Ratio). Can swap to SSIM if needed (see `app/utils.py`).
+- **Python Version**: Requires Python 3.11+ (specified in `runtime.txt`). Python 3.13 may have compatibility issues with some packages.
+- **Build**: Uses binary wheels for Pillow, pydantic-core, and asyncpg to avoid compilation errors on Render.
 
