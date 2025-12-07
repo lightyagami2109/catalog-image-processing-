@@ -2,6 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
+import os
 
 from app.db import init_db, close_db, settings
 from app.api import upload, retrieve, compare, metrics, purge
@@ -30,6 +31,18 @@ app.include_router(metrics.router)
 app.include_router(purge.router)
 
 
+# Background task for worker (runs in same process)
+worker_task = None
+
+async def run_worker_background():
+    """Run worker in background task (for free tier - no separate worker service needed)."""
+    from app.workers import main as worker_main
+    try:
+        # Skip init_db since it's already called in startup_event
+        await worker_main(skip_init_db=True)
+    except Exception as e:
+        print(f"Worker error: {e}")
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize database and check connections on startup."""
@@ -51,12 +64,28 @@ async def startup_event():
     except Exception as e:
         print(f"⚠ Redis connection failed: {e}. Using fallback queue.")
     
+    # Start worker as background task (only if ENABLE_WORKER env is not "false")
+    # This allows running worker in same process for free tier
+    if os.getenv("ENABLE_WORKER", "true").lower() != "false":
+        global worker_task
+        worker_task = asyncio.create_task(run_worker_background())
+        print("✓ Worker started as background task")
+    
     print("✓ Application started")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup on shutdown."""
+    # Cancel worker task if running
+    global worker_task
+    if worker_task:
+        worker_task.cancel()
+        try:
+            await worker_task
+        except asyncio.CancelledError:
+            pass
+    
     await close_db()
     print("Application shut down")
 

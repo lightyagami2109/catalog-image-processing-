@@ -184,12 +184,13 @@ async def worker_loop_fallback():
             await asyncio.sleep(1)
 
 
-async def main():
+async def main(skip_init_db=False):
     """Main worker entry point."""
     print("Starting image processing worker...")
     
-    # Initialize database
-    await init_db()
+    # Initialize database (skip if already initialized, e.g., when running as background task)
+    if not skip_init_db:
+        await init_db()
     
     # Try to connect to Redis
     redis = await get_redis_client()
