@@ -32,7 +32,6 @@ settings = Settings()
 engine = create_async_engine(
     settings.database_url,
     echo=False,  # Set to True for SQL debugging
-    future=True,
     pool_pre_ping=True,  # Verify connections before using
 )
 
