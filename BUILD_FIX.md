@@ -3,31 +3,34 @@
 ## Problem
 Build fails with "Failed to build 'pillow'" error. Pillow requires system libraries (libjpeg, zlib) that aren't available on Render by default.
 
-## Solution: Use Pre-built Wheels
+## Solution: Install Pillow First with Binary Wheels
 
 In your Render Web Service settings, **change the Build Command** to:
 
 ```bash
-pip install --upgrade pip setuptools wheel && pip install --only-binary :all: pillow && pip install -r requirements.txt
+pip install --upgrade pip setuptools wheel && pip install --upgrade pip && pip install pillow --only-binary :all: --no-cache-dir && pip install -r requirements.txt --no-cache-dir
 ```
 
-This will:
-1. Upgrade pip, setuptools, and wheel first
-2. Install Pillow using pre-built wheels (no compilation needed)
-3. Then install all other dependencies
-
-## Alternative: If Still Failing
-
-If the above doesn't work, try this command:
+**OR try this simpler version (recommended):**
 
 ```bash
-pip install --upgrade pip && pip install --upgrade setuptools wheel && pip install pillow --only-binary :all: && pip install -r requirements.txt --no-cache-dir
+pip install --upgrade pip && pip install pillow --only-binary :all: && pip install -r requirements.txt
 ```
 
-Or use this simpler version:
+## Alternative: If Still Failing - Use Latest Pillow
+
+If the above doesn't work, try installing latest Pillow explicitly:
 
 ```bash
-pip install --upgrade pip && pip install -r requirements.txt --only-binary :all: --no-cache-dir
+pip install --upgrade pip setuptools wheel && pip install --upgrade pillow --only-binary :all: && pip install -r requirements.txt --no-cache-dir
+```
+
+## Last Resort: Skip Pillow Build
+
+If nothing works, try this (installs from PyPI wheels only):
+
+```bash
+pip install --upgrade pip && pip install -r requirements.txt --prefer-binary --no-cache-dir
 ```
 
 ## Steps to Fix in Render
