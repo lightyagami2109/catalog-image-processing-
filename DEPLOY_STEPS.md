@@ -43,7 +43,7 @@
    - **Branch:** `main` (or `master`)
    - **Root Directory:** Leave empty (or `./`)
    - **Environment:** `Python 3`
-   - **Build Command:** `pip install -r requirements.txt`
+   - **Build Command:** `pip install --upgrade pip setuptools wheel && pip install --only-binary :all: pillow pydantic-core asyncpg && pip install -r requirements.txt --prefer-binary --no-cache-dir`
    - **Start Command:** `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
    - **Health Check Path:** `/healthz`
    - **Auto-Deploy:** `Yes` (optional - auto-deploys on git push)
