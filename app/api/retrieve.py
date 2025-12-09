@@ -12,7 +12,9 @@ from app.storage import storage
 router = APIRouter(prefix="/retrieve", tags=["retrieve"])
 
 
-@router.get("/asset/{asset_id}")
+from app.schemas import AssetResponse
+
+@router.get("/asset/{asset_id}", response_model=AssetResponse)
 async def get_asset(
     asset_id: int,
     db: AsyncSession = Depends(get_db)
@@ -43,7 +45,7 @@ async def get_asset(
         "height": asset.height,
         "bytes": asset.original_bytes,
         "color_space": asset.color_space,
-        "created_at": asset.created_at.isoformat(),
+        "created_at": asset.created_at,
         "renditions": [
             {
                 "preset": r.preset,

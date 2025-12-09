@@ -19,11 +19,11 @@ from app.utils import create_rendition, save_rendition, RENDITION_PRESETS
 try:
     import aioredis
     REDIS_AVAILABLE = True
-except ImportError:
+except (ImportError, TypeError, Exception):
     REDIS_AVAILABLE = False
 
 
-async def get_redis_client() -> Optional[aioredis.Redis]:
+async def get_redis_client() -> Optional["aioredis.Redis"]:
     """Get Redis client if available, else None."""
     if not REDIS_AVAILABLE or not settings.redis_url:
         return None
@@ -156,7 +156,7 @@ async def process_job(job_id: int, session: AsyncSession):
         await session.commit()
 
 
-async def worker_loop_redis(redis: aioredis.Redis):
+async def worker_loop_redis(redis: "aioredis.Redis"):
     """Worker loop using Redis queue."""
     queue_name = "image_jobs"
     

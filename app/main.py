@@ -96,18 +96,5 @@ async def health_check():
     return {"status": "healthy", "service": "catalog-image-pipeline"}
 
 
-@app.get("/")
-async def root():
-    """Root endpoint."""
-    return {
-        "message": "Catalog Image Processing Pipeline",
-        "version": "1.0.0",
-        "endpoints": {
-            "upload": "/upload",
-            "retrieve": "/retrieve/asset/{asset_id}",
-            "compare": "/compare/{asset_id}",
-            "metrics": "/metrics",
-            "purge": "/purge"
-        }
-    }
+
 
