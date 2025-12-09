@@ -72,6 +72,10 @@ async def process_job(job_id: int, session: AsyncSession):
         original_bytes = storage.read_file(original_path)
         image = Image.open(io.BytesIO(original_bytes))
         
+        # Convert to RGB if needed (JPEG doesn't support transparency)
+        if image.mode not in ("RGB", "L"):
+            image = image.convert("RGB")
+        
         # Process each rendition preset
         for preset in RENDITION_PRESETS.keys():
             # Check if rendition already exists (idempotency)
@@ -86,8 +90,13 @@ async def process_job(job_id: int, session: AsyncSession):
             if existing:
                 continue  # Skip if already exists
             
-            # Create rendition
+            # Create rendition (copy image to avoid modifying original)
             rendition_image = create_rendition(image.copy(), preset)
+            
+            # Ensure rendition is in RGB mode before saving as JPEG
+            if rendition_image.mode not in ("RGB", "L"):
+                rendition_image = rendition_image.convert("RGB")
+            
             rendition_bytes = save_rendition(rendition_image)
             
             # Save rendition file
@@ -105,11 +114,12 @@ async def process_job(job_id: int, session: AsyncSession):
                 color_space=rendition_image.mode
             )
             session.add(rendition)
+            print(f"  ✓ Created {preset} rendition for asset {asset.id} ({rendition_image.width}x{rendition_image.height})")
         
         # Mark job as completed
         job.status = "completed"
         await session.commit()
-        print(f"✓ Job {job_id} completed for asset {asset.id}")
+        print(f"✓ Job {job_id} completed for asset {asset.id} - all renditions created")
         
     except Exception as e:
         error_msg = str(e)
