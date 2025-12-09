@@ -122,7 +122,15 @@ async def process_job(job_id: int, session: AsyncSession):
         print(f"✓ Job {job_id} completed for asset {asset.id} - all renditions created")
         
     except Exception as e:
+        import traceback
         error_msg = str(e)
+        error_trace = traceback.format_exc()
+        
+        # Log full error for debugging
+        print(f"✗ ERROR in job {job_id} for asset {job.asset_id}:")
+        print(f"  {error_msg}")
+        print(f"  Traceback:\n{error_trace}")
+        
         job.error_message = error_msg
         job.retry_count += 1
         
@@ -137,12 +145,12 @@ async def process_job(job_id: int, session: AsyncSession):
             )
             session.add(poison)
             job.status = "failed"
-            print(f"✗ Job {job_id} failed permanently after {job.retry_count} retries")
+            print(f"✗ Job {job_id} failed permanently after {job.retry_count} retries: {error_msg}")
         else:
             # Retry with exponential backoff
             job.status = "pending"
             backoff_seconds = 2 ** job.retry_count  # 2, 4, 8 seconds
-            print(f"⚠ Job {job_id} failed, retrying in {backoff_seconds}s (attempt {job.retry_count}/{job.max_retries})")
+            print(f"⚠ Job {job_id} failed, retrying in {backoff_seconds}s (attempt {job.retry_count}/{job.max_retries}): {error_msg}")
             await asyncio.sleep(backoff_seconds)
         
         await session.commit()
@@ -185,12 +193,15 @@ async def worker_loop_fallback():
                 job = result.scalar_one_or_none()
                 
                 if job:
+                    print(f"📋 Found pending job {job.id} for asset {job.asset_id}")
                     await process_job(job.id, session)
                 else:
-                    # No jobs, wait a bit
+                    # No jobs, wait a bit (reduce log spam)
                     await asyncio.sleep(2)
         except Exception as e:
-            print(f"Error in fallback worker loop: {e}")
+            import traceback
+            print(f"❌ Error in fallback worker loop: {e}")
+            print(traceback.format_exc())
             await asyncio.sleep(1)
 
 
